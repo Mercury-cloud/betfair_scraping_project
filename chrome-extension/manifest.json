@@ -1,0 +1,25 @@
+{
+	"name": "BET IT DATA",
+	"version": "1.0",
+	"description": "Remove all Google ads",
+	"manifest_version": 2,
+	"background": {
+      "scripts": ["background.js"],
+      "persistent": false
+    },    
+	"permissions": ["activeTab", "declarativeContent", "storage", "tabs", "http://*/*", "https://*/*", "webNavigation"],
+	"page_action": {
+	    "default_popup": "popup.html"	 	    
+	  },
+	"content_scripts": [
+		{
+			"run_at": "document_idle",
+			"matches": ["https://www.betfair.it/exchange/plus/it/calcio-scommesse-1/*", "http://localhost/dataviz.it/*"],		//local-dev   //it/calcio-scommesse-1
+			// "matches": ["https://www.betfair.it/exchange/plus/football/*", "http://localhost/public_html/PHP/betfair/dataviz.betfair.it/site/*"],		//local-dev
+			// "matches": ["https://www.betfair.it/exchange/plus/football/*", "http://dataviz.it.nicoladefontetipster.com/*"],
+			"js": ["jquery.js", "d3.v4.min.js", "c3.min.js", "contentScript.js"],
+			"all_frames": true
+		}
+	]
+
+}
