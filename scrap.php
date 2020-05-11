@@ -17,6 +17,7 @@ function getMarketIds() {
 
 
 function getMarketIdsByType($marketType) {
+
 	$curl = curl_init();
 
 	$jsonRequestBody = ['filter' => ['marketBettingTypes' => ['ODDS'],'productTypes' => ['EXCHANGE'],'marketTypeCodes' => [],'selectBy' =>'FIRST_TO_START_AZ','contentGroup' => ['language' => 'en','regionCode' => 'UK'],'turnInPlayEnabled' => true,'maxResults' => 1000,'eventTypeIds' => [1]],'currencyCode' => 'EUR','locale' => 'it'];
@@ -48,8 +49,9 @@ function getMarketIdsByType($marketType) {
 	));
 
 	$response = curl_exec($curl);
+	// var_dump($response);
 	$err = curl_error($curl);
-	
+	// var_dump($err);
 	curl_close($curl);
 
 	$map = array();
@@ -64,14 +66,17 @@ function getMarketIdsByType($marketType) {
 		foreach (json_decode($response)->results as $key => $val) {
 			
 			$map[$val->eventId] = $val->marketId;
+
 			//echo $val->eventId.', '.$val->marketId.', '.$val->competitionId.', '.$val->eventTypeId.'<br>';
 
 		}
 	}
+	var_dump($map);
 	return $map;
 }
 
 function multiRequest($IdsStringArr) {	
+	// var_dump($IdsStringArr);
 
 	$curly = array();	
 
@@ -182,7 +187,7 @@ function multiRequest($IdsStringArr) {
 				'eventIds' => $IdsStringArr[$id]['eventIdString'],
 				'data' => $_data
 			];
-		} 
+		}
 		
 		curl_multi_remove_handle($mh, $c);
 	}
@@ -290,7 +295,7 @@ function get_data_from_betfair() {
 
 $lifetime = 10;
 $initialTime = time();
-for($i=0; $i < 10; $i++) {
+for( $i = 0; $i < 10; $i++) {
 	get_data_from_betfair();
 	$elapsedTime = time() - $initialTime;
 	if($elapsedTime > $lifetime) {

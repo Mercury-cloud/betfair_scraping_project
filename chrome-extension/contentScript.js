@@ -1,5 +1,7 @@
 
+_global_data={}
 
+// document.cookie = 'cross-site-cookie=bar; SameSite=None; Secure';
 if (document.location.href.includes('www.betfair.it/exchange/plus/it/calcio-scommesse-1')== true) {		// code for betfair.it
 	// Communication
 	// var destinationUrl = "http://localhost/public_html/PHP/betfair/dataviz.betfair.it/site/*";	//local-dev
@@ -48,11 +50,12 @@ if (document.location.href.includes('www.betfair.it/exchange/plus/it/calcio-scom
 	}
 
 	function getXApplication() {
-		var url='https://www.betfair.it/exchange/graphs/#/1.153757405/55190/0';
+		// var url='https://www.betfair.it/exchange/graphs/#/1.153757405/55190/0';
+		var url='https://graphs.betfair.it/';
 		Http = new XMLHttpRequest();	
 		Http.open("GET", url);
 		Http.send();
-		console.log("Get from url sent!----https://www.betfair.it/exchange/graphs/#/1.153757405/55190/0")
+		console.log("Get from url sent!----https://graphs.betfair.it/")
 		Http.onreadystatechange = function() {
 			if (this.readyState == 4 && this.status == 200) {
 				str = this.responseText;
@@ -112,8 +115,6 @@ if (document.location.href.includes('dataviz.it')== true) {		// code for dataviz
 	marketIdArr = [];
 	eventIdArr = [];	
 	clusterSize = 5;
-	detailedData = {};
-	graphData = {};
 	matchData = {};
 	var selectionIds = [];
 	var selectionCnt = 0;
@@ -148,7 +149,7 @@ if (document.location.href.includes('dataviz.it')== true) {		// code for dataviz
 	    //             "from a content script:" + sender.tab.url :
 	    //             "from the extension");    
 	    console.log('RECEIVED MESSAGE', request.payload); 
-	    if(!request.payload) return;
+	    // if(!request.payload) return;
 	    if(request.payload.notification != undefined && request.payload.notification == 'logout') {
 	    	// alert('You\'ve been logged out from betfair. Please login betfair.');
 	    } else {
@@ -159,6 +160,7 @@ if (document.location.href.includes('dataviz.it')== true) {		// code for dataviz
 		    console.log('RECEIVED CREDENTIAL');
 		    console.log('xApplication', xApplication);
 		    console.log('xAuthentication', xAuthentication);
+		    console.log('pageSize', pageSize);
 		    var credential = {xApplication: xApplication, xAuthentication: xAuthentication, pageSize: pageSize};
 		    localStorage.setItem('credential', JSON.stringify(credential));
 		    if(startFlag == false) {
@@ -219,11 +221,13 @@ if (document.location.href.includes('dataviz.it')== true) {		// code for dataviz
 
 		startFlag = true;
 
-		detailedData = {};
-		graphData = {};
-		var cur_cnt = 0;
+		var cur_cnt1 = 0;
+		var cur_cnt2 = 0;
 		var loop_cnt = Math.ceil(marketIdArr.length / clusterSize);
 		var marketIds, subArr;
+		var detailed = {};
+		var graph = {};
+
 		for(i=0; i<loop_cnt; i++) {
 			if(i != loop_cnt-1) {
 				subArr = marketIdArr.slice(i * clusterSize, (i+1)*clusterSize)
@@ -231,44 +235,58 @@ if (document.location.href.includes('dataviz.it')== true) {		// code for dataviz
 				subArr = marketIdArr.slice(i * clusterSize);
 			}
 			var marketIds = subArr.join(',');
-			console.log('marketIds---', marketIds);
 			var url='https://ero.betfair.it/www/sports/exchange/readonly/v1/bymarket?_ak=nzIFcwyWhrlwYMrh&currencyCode=EUR&locale=it&marketIds=' + marketIds + '&rollupLimit=2&rollupModel=STAKE&types=MARKET_STATE,RUNNER_STATE,RUNNER_EXCHANGE_PRICES_BEST';
-			console.log('detailDatagetURLs---', url);
-			$.ajax({
-				url: url,
-				type: "GET",
-				dataType: "json"
-			}).done(function(res) {
-				console.log('detailedData-------', res);		
+			chrome.runtime.sendMessage({type: 'table', url: url}, function(res) {
+				console.log('table data received...');
+				// init detailed data.
+				// console.log('recievec table data from background: ', res);
 				var eventNodes = res.eventTypes[0].eventNodes;
 				if(eventNodes.length > 0) {
 					eventNodes.forEach(function(d) {
-						detailedData[d.eventId] = d;
+						detailed[d.eventId] = d;
 					});
 				}			
-				if(cur_cnt/2 == loop_cnt-1) {
-					saveData();
+				if(cur_cnt1 == loop_cnt-1) {
+					displayData('table', detailed);
 				}
-				cur_cnt++;
+				cur_cnt1++;
 			});
+			// $.ajax({
+			// 	url: url,
+			// 	type: "GET",
+			// 	dataType: "json"
+			// }).done(function(res) {
+			// 	console.log('detailedData-------', res.eventTypes[0].eventNodes);		
+			// 	var eventNodes = res.eventTypes[0].eventNodes;
+			// 	if(eventNodes.length > 0) {
+			// 		eventNodes.forEach(function(d) {
+			// 			detailedData[d.eventId] = d;
+			// 		});
+			// 	}			
+			// 	if(cur_cnt/2 == loop_cnt-1) {
+			// 		console.log("savedata___12");
+			// 		saveData();
+			// 	}
+			// 	cur_cnt++;
+			// });
 
 			var url1='https://ero.betfair.it/www/sports/exchange/readonly/v1/bymarket?_ak=nzIFcwyWhrlwYMrh&alt=json&currencyCode=EUR&locale=it&marketIds=' + marketIds + '&rollupLimit=2&rollupModel=STAKE&ts=' + new Date().getTime() + '&types=EVENT,MARKET_DESCRIPTION,RUNNER_DESCRIPTION,RUNNER_STATE,RUNNER_EXCHANGE_PRICES_ALL,RUNNER_EXCHANGE_TRADED,RUNNER_SP_TAKEN&virtualise=true';			
-			// chrome.runtime.sendMessage({url: url1, xApp: xApplication, xAuth: xAuthentication}, function(res) {
-				// var response = jQuery.parseJSON(res);
-				// console.log('graphData---------', response);		
-				// var eventNodes = response.eventTypes[0].eventNodes;
-				// console.log("eventNodes----", eventNodes);
-				// if(eventNodes.length > 0) {
-				// 	eventNodes.forEach(function(d) {
-				// 		graphData[d.eventId] = d;
-				// 		console.log('graphData_each_d.eventId-----', graphData[d.eventId]);
-				// 	});
-				// }			
-				// if(cur_cnt/2 == loop_cnt-1) {
-				// 	saveData();
-				// }
-				// cur_cnt++;
-			// });
+			chrome.runtime.sendMessage({type: "graph", url: url1, xApp: xApplication, xAuth: xAuthentication}, function(res) {
+				// console.log('recievec chat data from background:: ', res);
+				console.log('chat data received...');
+				var response = jQuery.parseJSON(res);
+				var eventNodes = response.eventTypes[0].eventNodes;
+				if(eventNodes.length > 0) {
+					eventNodes.forEach(function(d) {
+						graph[d.eventId] = d;
+					});
+				}			
+				if(cur_cnt2 == loop_cnt-1) {
+					displayData('graph', graph);
+				}
+				cur_cnt2++;
+			});
+
 			// chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 			// 	console.log('requestdata----', request.data);
 			// 	if(!request.data) return;
@@ -287,14 +305,15 @@ if (document.location.href.includes('dataviz.it')== true) {		// code for dataviz
 			// 	}
 			// 	cur_cnt++;
 			// });
-			Http = new XMLHttpRequest();	
-			Http.open("GET", url1);
-			Http.setRequestHeader('X-Application', xApplication);
-			Http.setRequestHeader('X-Authentication', xAuthentication);
+
+			// Http = new XMLHttpRequest();	
+			// Http.open("GET", url1);
+			// Http.setRequestHeader('X-Application', xApplication);
+			// Http.setRequestHeader('X-Authentication', xAuthentication);
 			// Http.setRequestHeader('Access-Control-Allow-Origin', '*');
 			// Http.setRequestHeader('Access-Control-Allow-Methods', '*/*');
-			Http.send();
-			Http.onreadystatechange = function() {
+			// Http.send();
+			// Http.onreadystatechange = function() {
 			// 	if(this.readyState == this.HEADERS_RECEIVED) {
 
 			// 	    // Get the raw header string
@@ -323,23 +342,23 @@ if (document.location.href.includes('dataviz.it')== true) {		// code for dataviz
 
 			// 	  }
 
-				if (this.readyState == 4 && this.status == 200) {				
-					var response = jQuery.parseJSON(this.responseText);
-					console.log('graphData---------', response);		
-					var eventNodes = response.eventTypes[0].eventNodes;
-					console.log("eventNodes----", eventNodes);
-					if(eventNodes.length > 0) {
-						eventNodes.forEach(function(d) {
-							graphData[d.eventId] = d;
-							console.log('graphData_each_d.eventId-----', graphData[d.eventId]);
-						});
-					}			
-					if(cur_cnt/2 == loop_cnt-1) {
-						saveData();
-					}
-					cur_cnt++;
-				}
-			}
+				// if (this.readyState == 4 && this.status == 200) {				
+				// 	var response = jQuery.parseJSON(this.responseText);
+				// 	console.log('graphData---------', response);		
+				// 	var eventNodes = response.eventTypes[0].eventNodes;
+				// 	console.log("eventNodes----", eventNodes);
+				// 	if(eventNodes.length > 0) {
+				// 		eventNodes.forEach(function(d) {
+				// 			graphData[d.eventId] = d;
+				// 			console.log('graphData_each_d.eventId-----', graphData[d.eventId]);
+				// 		});
+				// 	}			
+				// 	if(cur_cnt/2 == loop_cnt-1) {
+				// 		saveData();
+				// 	}
+				// 	cur_cnt++;
+				// }
+			// }
 		}
 	}
 
@@ -359,22 +378,27 @@ if (document.location.href.includes('dataviz.it')== true) {		// code for dataviz
 	///////////////////////////////////////////////	
 	
 
-	function saveData() {
-		console.log('total', Object.keys(detailedData).length);
-		console.log(detailedData);
-		console.log('total graph', Object.keys(graphData).length);
-		console.log(graphData);
+	function displayData(type, data) {
+		// console.log(graphData);
+		if(type === 'table')
+			_global_data = {..._global_data, table: {...data}};
+		else
+			_global_data = {..._global_data, graph: {...data}};
+
+		console.log('display data:', type, data, 'all data:', _global_data);
 
 		// data = {matchList: matchList, detailedData: detailedData, graphData: graphData};
 		// localStorage.setItem('data', JSON.stringify(data));
-		storeMoneyAvailability(graphData);	
+		if(type==='graph')
+			storeMoneyAvailability(data);	
 		// if(document.location.href.includes('dataviz.betfair.it/site/data-page.php')== true) {	// 2nd Page  local-dev
 		// if(document.location.href.includes('dataviz.it.nicoladefontetipster.com/data-page.php')== true) {	// 2nd Page
-		if(document.location.href.includes('dataviz.it/data-page.php')== true) {	// 2nd Page  local-dev
+		if(document.location.href.includes('dataviz.it/data-page.php') == true) {	// 2nd Page  local-dev
 			var url = new URL(window.location.href);
-			reloadDataPage(url.searchParams.get("event"), url.searchParams.get("market"));
+			console.log('creating graph', url)
+			reloadDataPage(url.searchParams.get("event"), url.searchParams.get("market"), _global_data.table, _global_data.graph);
 		} else {	// 1st Page		
-			reloadMeanMatchPage();
+			reloadMeanMatchPage(_global_data.table, _global_data.graph);
 		} 
 	}
 
@@ -447,7 +471,7 @@ if (document.location.href.includes('dataviz.it')== true) {		// code for dataviz
 	}
 
 	// //////// 1st Page //////////
-	function reloadMeanMatchPage() {
+	function reloadMeanMatchPage( detailedData, graphData) {
 		console.log('reloadMeanMatchPage');
 		// data = jQuery.parseJSON(localStorage.getItem('data'));
 		// if(data == undefined || data.matchList == undefined) {
@@ -595,15 +619,17 @@ if (document.location.href.includes('dataviz.it')== true) {		// code for dataviz
 	// //////// 2nd Page //////////
 	
 	
-	function reloadDataPage(event_id, market_id) {
-		console.log('reloadDataPage');
+	function reloadDataPage(event_id, market_id, detailedData, graphData) {
+		// console.log('reloadDataPage', detailedData[event_id]);
+		// console.log('reloadDataPage', graphData[event_id]);
 		// data = jQuery.parseJSON(localStorage.getItem('data'));
-		if(detailedData[event_id] == undefined) {			
-			if(graphData[event_id] == undefined) {
+		if(detailedData[event_id] == undefined && graphData[event_id] == undefined) {			
+			// if(graphData[event_id] == undefined) {
 				console.log('No Match Data!');
 				showStatus('Sorry, No match data from betfair!');
-				return;	
-			}			
+			// 	return;	
+			// }	
+			return;		
 		}
 
 		eventId = event_id;
@@ -631,15 +657,19 @@ if (document.location.href.includes('dataviz.it')== true) {		// code for dataviz
 			selectionCnt = 0;
 			for(var i=0; i<3; i++) {
 				if(checkPropInObj(runners, [i, 'selectionId'])) selectionIds[i] = runners[i].selectionId;
+				console.log('selectionID from reloadDataPage----', selectionIds[i])
 				if(selectionIds[i] != undefined) {
 					selectionCnt++;
 					
 				}
+				// getChartData(market_id, event_id, i);
 			}
 		}
 
 		if(selectionCnt > 0) {
-			getChartData(market_id, event_id, 0);			
+			console.log('selectionCnt from reloadDataPage-----------', selectionCnt);
+			selectionCnt++;
+			getChartData(market_id, event_id, -1);			
 		}
 		
 		getMatchData(event_id, market_id);
@@ -680,38 +710,64 @@ if (document.location.href.includes('dataviz.it')== true) {		// code for dataviz
 		}
 		console.log('credential', credential);
 
-		var url1='https://ero.betfair.it/www/sports/exchange/readonly/v1.0/bymarket?alt=json&currencyCode=EUR&locale=it&marketIds=' + market_id + '&rollupLimit=2&rollupModel=STAKE&ts=' + new Date().getTime() + '&types=EVENT,MARKET_DESCRIPTION,RUNNER_DESCRIPTION,RUNNER_STATE,RUNNER_EXCHANGE_PRICES_ALL,RUNNER_EXCHANGE_TRADED,RUNNER_SP_TAKEN&virtualise=true';
-		Http = new XMLHttpRequest();	
-		Http.open("GET", url1);
-		Http.setRequestHeader('X-Application', xApplication);
-		Http.setRequestHeader('X-Authentication', xAuthentication);
-		Http.send();
-		Http.onreadystatechange = function() {
-			if (this.readyState == 4 && this.status == 200) {				
-				var response = jQuery.parseJSON(this.responseText);
-				var eventNodes = response.eventTypes[0].eventNodes;
-				console.log('matchData----------------', eventNodes[0]);
+		var url1='https://ero.betfair.it/www/sports/exchange/readonly/v1.0/bymarket?_ak=nzIFcwyWhrlwYMrh&alt=json&currencyCode=EUR&locale=it&marketIds=' + market_id + '&rollupLimit=2&rollupModel=STAKE&ts=' + new Date().getTime() + '&types=EVENT,MARKET_DESCRIPTION,RUNNER_DESCRIPTION,RUNNER_STATE,RUNNER_EXCHANGE_PRICES_ALL,RUNNER_EXCHANGE_TRADED,RUNNER_SP_TAKEN&virtualise=true';
+		chrome.runtime.sendMessage({type: 'graph', url: url1, xApp: xApplication, xAuth: xAuthentication}, function(res) {
+			// console.log('1----- res: ', res);
+			var response = jQuery.parseJSON(res);
+			console.log('graphData---------', response);		
+			var eventNodes = response.eventTypes[0].eventNodes;
+			console.log("eventNodes----", eventNodes);
+			
+			if(eventNodes[0] != undefined) {
+				matchData = eventNodes[0];
+				$.ajax({
+					type: "post",
+					url: "data-process.php",
+					dataType: "json",
+					data: {data: JSON.stringify(matchData)},
+					success: function(res) {
+						$('#table-section').html(res.tables);
+						$('#data-section').html(res.charttables);
+						$('.match-name').text(match_name);
+						$('#chart_tbl0').text(teams[0]);
+						$('#chart_tbl1').text(teams[1]);
+						$('#chart_tbl2').text('Pareggio');
+						
+					}
+				});
+			}		
+		});
+		// Http = new XMLHttpRequest();	
+		// Http.open("GET", url1);
+		// Http.setRequestHeader('X-Application', xApplication);
+		// Http.setRequestHeader('X-Authentication', xAuthentication);
+		// Http.send();
+		// Http.onreadystatechange = function() {
+		// 	if (this.readyState == 4 && this.status == 200) {				
+		// 		var response = jQuery.parseJSON(this.responseText);
+		// 		var eventNodes = response.eventTypes[0].eventNodes;
+		// 		console.log('matchData----------------', eventNodes[0]);
 				
-				if(eventNodes[0] != undefined) {
-					matchData = eventNodes[0];
-					$.ajax({
-						type: "post",
-						url: "data-process.php",
-						dataType: "json",
-						data: {data: JSON.stringify(matchData)},
-						success: function(res) {
-							$('#table-section').html(res.tables);
-							$('#data-section').html(res.charttables);
-							$('.match-name').text(match_name);
-							$('#chart_tbl0').text(teams[0]);
-							$('#chart_tbl1').text(teams[1]);
-							$('#chart_tbl2').text('Pareggio');
+		// 		if(eventNodes[0] != undefined) {
+		// 			matchData = eventNodes[0];
+		// 			$.ajax({
+		// 				type: "post",
+		// 				url: "data-process.php",
+		// 				dataType: "json",
+		// 				data: {data: JSON.stringify(matchData)},
+		// 				success: function(res) {
+		// 					$('#table-section').html(res.tables);
+		// 					$('#data-section').html(res.charttables);
+		// 					$('.match-name').text(match_name);
+		// 					$('#chart_tbl0').text(teams[0]);
+		// 					$('#chart_tbl1').text(teams[1]);
+		// 					$('#chart_tbl2').text('Pareggio');
 							
-						}
-					});
-				}							
-			}
-		}
+		// 				}
+		// 			});
+		// 		}							
+		// 	}
+		// }
 	}
 
 	function getChartData(market_id, event_id, i) {
@@ -722,46 +778,77 @@ if (document.location.href.includes('dataviz.it')== true) {		// code for dataviz
 			return;
 		}
 		xApplication = credential.xApplication;
-		pageSize = credential.pageSize;		
+		pageSize = credential.pageSize;	
+		console.log('pageSize in getChartData----', pageSize);	
 		if(xApplication == undefined || pageSize == undefined || xApplication == "" || pageSize == "") {
 			console.log('No Credential !!!');
 			return;
 		}
 
-		client = new XMLHttpRequest();
 		// client.open('GET', 'https://ips.betfair.it/inplayservice/v1/scoresAndBroadcast?_ak=nzIFcwyWhrlwYMrh&hc=0&mId=' + market_id + '&pageSize=' + pageSize + '&sId=' + selectionIds[i]);
-		client.open('GET', 'https://strands.betfair.it/api/ega/history/v1?hc=0&mId=' + market_id + '&pageSize=' + pageSize + '&sId=' + selectionIds[i]);
-		client.setRequestHeader("Accept", "application/json, text/plain, */*");
-		client.setRequestHeader('X-Application', 'WD5WvzdqTuLXyNo9');
-		client.send();
-		console.log('SENT REQUEST FOR GRAPH DATA' + i);
+		// client.open('GET', 'https://strands.betfair.it/api/ega/history/v1?hc=0&mId=' + market_id + '&pageSize=' + pageSize + '&sId=' + selectionIds[i]);
+		// https://lbr.betfair.it/www/sports/exchange/reporting/live/v1.0/getMarketPositionViews?_ak=nzIFcwyWhrlwYMrh&alt=json&includeSettledProfit=true&marketIds=1.170418172,1.170418190,1.170418208,1.170418226,1.170418280,1.170418136,1.170424047,1.170423975,1.170418154,1.170418244,1.170418262,1.170418298,1.170423885,1.170423921,1.170423939,1.170423993,1.170424011,1.170403626,1.170421777,1.170421858,1.170422125,1.170423957,1.170423903,1.170424029&matchProjection=AVG_PRICE
+		// https://graphs.betfair.it/api/sports/exchange/readonly/v1.0/bymarket?_ak=WD5WvzdqTuLXyNo9&alt=json&currencyCode=EUR&locale=en_GB&marketIds=1.170403627&rollupLimit=2&rollupModel=STAKE&types=EVENT,MARKET_DESCRIPTION,RUNNER_DESCRIPTION,RUNNER_STATE,RUNNER_EXCHANGE_PRICES_ALL,RUNNER_EXCHANGE_TRADED,RUNNER_SP_TAKEN,MARKET_LINE_RANGE_INFO&virtualise=true
+		// https://graphs.betfair.it/api/ega/history/v1?_ak=WD5WvzdqTuLXyNo9&hc=0&mId=1.170403627&pageSize=10500&sId=22504993
+		let url = 'https://graphs.betfair.it/api/ega/history/v1?_ak=WD5WvzdqTuLXyNo9&hc=0&mId=' + market_id + '&pageSize=' + pageSize + '&sId=' + selectionIds[i]
+		console.log('SENT REQUEST FOR GRAPH DATA' + selectionIds[i]);
+		chrome.runtime.sendMessage({type: 'chart', url: url, xApp: 'WD5WvzdqTuLXyNo9'}, function(res) {
+			chart_data[i] = jQuery.parseJSON(res);
+			console.log('chart_data', chart_data[i]);
+			selectionCnt--;
+			if(selectionCnt > 0) {
+				getChartData(market_id, event_id, i+1);
+			} else if(selectionCnt == 0) {
+				console.log('END RECEIVED');					
+				// localStorage.setItem('chart-data', JSON.stringify(chart_data));	
+				chartData = chart_data;
+				$.ajax({
+					type: "post",
+					url: "chart-data.php",
+					dataType: "json",
+					data: {data: JSON.stringify(matchData), chartData: JSON.stringify(chart_data)},
+					success: function(res) {
+						$('#table-section').append(res.tables);
+					}
+				});  
+				console.log('drawChart called-------------');
+				drawChart();
+			}				
+		});
 
-		client.onreadystatechange = function() {						
-			if (this.readyState == 4 && this.status == 200) {		
-				console.log('RECEIVED chart data ' + i, client.responseText);	
-				chart_data[i] = jQuery.parseJSON(client.responseText);
-				console.log('chart_data', chart_data[i]);
-				selectionCnt--;
-				if(selectionCnt > 0) {
-					getChartData(market_id, event_id, i+1);
-				} else if(selectionCnt == 0) {
-					console.log('END RECEIVED');					
-					// localStorage.setItem('chart-data', JSON.stringify(chart_data));	
-					chartData = chart_data;
-					$.ajax({
-						type: "post",
-						url: "chart-data.php",
-						dataType: "json",
-						data: {data: JSON.stringify(matchData), chartData: JSON.stringify(chart_data)},
-						success: function(res) {
-							$('#table-section').append(res.tables);
-						}
-					});  
 
-					drawChart();
-				}				
-			}
-		}	
+		// client.open('GET', 'https://graphs.betfair.it/api/ega/history/v1?_ak=WD5WvzdqTuLXyNo9&hc=0&mId=' + market_id + '&pageSize=10500&sId=' + selectionIds[i]);
+		// client.setRequestHeader("Accept", "application/json, text/plain, */*");
+		// client.setRequestHeader('X-Application', 'WD5WvzdqTuLXyNo9');
+		// client.send();
+		
+
+		// client.onreadystatechange = function() {						
+		// 	if (this.readyState == 4 && this.status == 200) {		
+		// 		console.log('RECEIVED chart data ' + i, client.responseText);	
+		// 		chart_data[i] = jQuery.parseJSON(client.responseText);
+		// 		console.log('chart_data', chart_data[i]);
+		// 		selectionCnt--;
+		// 		if(selectionCnt > 0) {
+		// 			getChartData(market_id, event_id, i+1);
+		// 		} else if(selectionCnt == 0) {
+		// 			console.log('END RECEIVED');					
+		// 			// localStorage.setItem('chart-data', JSON.stringify(chart_data));	
+		// 			chartData = chart_data;
+		// 			$.ajax({
+		// 				type: "post",
+		// 				url: "chart-data.php",
+		// 				dataType: "json",
+		// 				data: {data: JSON.stringify(matchData), chartData: JSON.stringify(chart_data)},
+		// 				success: function(res) {
+		// 					$('#table-section').append(res.tables);
+		// 				}
+		// 			});  
+
+		// 			drawChart();
+		// 		}				
+		// 	}
+		// }	
 	}
 
 		
@@ -1268,6 +1355,7 @@ if (document.location.href.includes('dataviz.it')== true) {		// code for dataviz
 
 function checkAuth() {
 	var credential = jQuery.parseJSON(localStorage.getItem('credential'));
+	console.log("credential----", credential);
 	if(credential == undefined || credential.xAuthentication == undefined || credential.xApplication == undefined || credential.xAuthentication == "" || credential.xApplication == "") {
 		$('.led-button').removeClass('led-red').removeClass('led-green').addClass('led-red');
 		$('.led-button').text('No Auth');
